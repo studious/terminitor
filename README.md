@@ -94,7 +94,7 @@ to create windows, we can simply invoke the window command with a block containi
 
 The setup block allows you to store commands that can be ran specifically in two ways.
 
-Before a project using:
+__1. Before a project using:__
     
     $ terminitor setup project_name
 
@@ -109,7 +109,13 @@ or with a block:
       run "bundle install"
     end
 
-Or when a tab is opened as part of a block (window, tab, group) the commands are run in each traversed block
+__2. when a tab is opened as part of a block__ (window, tab, group) the commands are run in each traversed block
+
+    group do
+      setup "echo setup for these tabs"
+      tab "echo 'tab1 with setup'"
+      tab "echo 'tab2 with setup'"
+    end
 
     window do
       setup do
@@ -117,14 +123,16 @@ Or when a tab is opened as part of a block (window, tab, group) the commands are
         run "rvm use @mygemset"
       end
        
-      tab "irb"
+      tab "echo 'setups were run'", "irb"
       tab "rails console" do
+        run "echo 'setups were run'"
         run "cd ~/dev/rails_proj"
       end
 
       group do
         setup "echo 'setup for these group tabs'"
-        tab "echo 'needed extra setup'"
+
+        tab "echo 'use windows setup first then group setup'"
       end			  
     end
 
