@@ -13,9 +13,16 @@ Gem::Specification.new do |s|
 
   s.required_rubygems_version = ">= 1.3.6"
   s.rubyforge_project         = "terminitor"
-
-  s.add_dependency "rb-appscript"
+  
+  # Platform Specific Dependencies
+  case RUBY_PLATFORM.downcase
+  when %r{darwin}
+    s.add_dependency "rb-appscript"
+  else
+  end
+  
   s.add_dependency "thor", "~>0.14.0"
+  s.add_dependency "github"
   s.add_development_dependency "bundler", "~>1.0.0"
   s.add_development_dependency "riot", "~>0.11.0"
   s.add_development_dependency "rr"
@@ -23,7 +30,7 @@ Gem::Specification.new do |s|
   s.post_install_message = %q{********************************************************************************
 
     Terminitor is installed! 
-    Please run 'terminitor setup'. 
+    Please run 'terminitor init'. 
     This will create a directory at ~/.terminitor which will hold all your global scripts.
     Thanks!
 

@@ -1,106 +1,103 @@
 module Terminitor
+  # This module contains all the helper methods for the Cli component.
   module Runner
 
+    # Finds the appropriate platform core, else say you don't got it.
+    # find_core RUBY_PLATFORM
+    def find_core(platform)
+      core = case platform.downcase
+      when %r{darwin} then Terminitor::MacCore
+      when %r{linux}  then Terminitor::KonsoleCore # TODO check for gnome and others
+      else nil
+      end
+    end
+
+    # Execute the core with the given method.
+    # execute_core :process!, 'project'
+    # execute_core :setup!, 'my_project'
+    def execute_core(method, project)
+      if path = resolve_path(project)
+        core = find_core(RUBY_PLATFORM)
+        core ? core.new(path).send(method) : say("No suitable core found!")
+      else
+        return_error_message(project)
+      end
+    end
+
     # opens doc in system designated editor
+    # open_in_editor '/path/to', 'nano'
     def open_in_editor(path, editor=nil)
       editor = editor || ENV['TERM_EDITOR'] || ENV['EDITOR']
       say "please set $EDITOR or $TERM_EDITOR in your .bash_profile." unless editor
       system("#{editor || 'open'} #{path}")
     end
 
-    def do_project(path)
-      terminal = app('Terminal')
-      tabs = load_config(path)
-
-      tabs.each do |hash|
-        tabname = hash.keys.first
-        cmds = hash.values.first
-
-        tab = self.open_tab(terminal)
-        cmds = [cmds].flatten
-        cmds.insert(0, "cd \"#{@working_dir}\" ; clear") unless @working_dir.to_s.empty?
-        cmds.each do |cmd|
-          terminal.windows.last.do_script(cmd, :in => tab)
-        end
-      end
-    end
-
-    def run_termfile(path)
-      terminal = app('Terminal')
-      termfile = load_termfile(path)
-      setups = termfile[:setup]
-      windows = termfile[:windows]
-      unless windows['default'].empty?
-        default = windows.delete('default')
-        run_in_window(default, terminal)
-      end
-      windows.each_pair { |window_name, tabs| run_in_window(tabs, terminal) }
-
-    end
-
-    # this command will run commands in the designated window
-    def run_in_window(tabs, terminal)
-      self.open_window(terminal)
-      tabs.each_pair do |tab_name,commands|
-        tab = self.open_tab(terminal)
-        commands.insert(0,  "cd \"#{@working_dir}\" ; clear") unless @working_dir.to_s.empty?
-        commands.each do |cmd|
-          terminal.windows.last.do_script(cmd, :in => tab)
-        end
-      end
-
-    end
-
+    # returns path to file
+    # resolve_path 'my_project'
     def resolve_path(project)
       unless project.empty?
-        File.join(ENV['HOME'],'.terminitor', "#{project.sub(/\.yml$/, '')}.yml")
+        path = config_path(project, :yml) # Give old yml path
+        return path if File.exists?(path)
+        path = config_path(project, :term) # Give new term path.
+        return path if File.exists?(path)
+        nil
       else
-        File.join(options[:root],"Termfile")
+        path = File.join(options[:root],"Termfile")
+        return path if File.exists?(path)
+        nil
       end
     end
 
-    def load_config(path)
-      YAML.load(File.read(path))
+    # returns first line of file
+    # grab_comment_for_file '/path/to'
+    def grab_comment_for_file(file)
+      first_line = File.readlines(file).first
+      first_line =~ /^\s*?#/ ? ("-" + first_line.gsub("#","")) : "\n"
     end
 
-    def load_termfile(path)
-      Terminitor::Termfile.new(path).to_hash
-    end
-
-    # somewhat hacky in that it requires Terminal to exist,
-    # which it would if we run this script from a Terminal,
-    # but it won't work if called e.g. from cron.
-    # The latter case would just require us to open a Terminal
-    # using do_script() first with no :in target.
-    #
-    # One more hack:  if we're getting the first tab, we return
-    # the term window's only current tab, else we send a CMD+T
-    def open_tab(terminal)
-      if @got_first_tab_already
-        app("System Events").application_processes["Terminal.app"].keystroke("t", :using => :command_down)
-      end
-      @got_first_tab_already = true
-      local_window = active_window(terminal)
-      @working_dir = Dir.pwd
-      local_tabs = local_window.tabs if local_window
-      local_tabs.last.get if local_tabs
-    end
-
-    def open_window(terminal)
-      app("System Events").application_processes["Terminal.app"].keystroke("n", :using => :command_down)
-      local_window = active_window(terminal)
-      local_window.activate
-      local_tabs = local_window.tabs if local_window
-      local_tabs.last.get if local_tabs
-    end
-
-
-    # makes sure to set active window as frontmost.
-    def active_window(terminal)
-      (1..terminal.windows.count).each do |i|
-        window = terminal.windows[i]
-        return window if window.properties_.get[:frontmost]
+    # Return file in config_path
+    # config_path '/path/to', :term
+    def config_path(file, type = :yml)
+      return File.join(options[:root],"Termfile") if file.empty?
+      dir = File.join(ENV['HOME'],'.terminitor')
+      if type == :yml
+        File.join(dir, "#{file.sub(/\.yml$/, '')}.yml")
+      else
+        File.join(dir, "#{file.sub(/\.term$/, '')}.term")
       end
     end
+
+    # Returns error message depending if project is specified
+    # return_error_message 'hi
+    def return_error_message(project)
+      unless project.empty?
+        say "'#{project}' doesn't exist! Please run 'terminitor open #{project.gsub(/\..*/,'')}'"
+      else
+        say "Termfile doesn't exist! Please run 'terminitor open' in project directory"
+      end
+    end
+
+    # This will clone a repo in the current directory.
+    # It will first try to clone via ssh(read/write),
+    # if not fall back to git-read only, else, fail.
+    def clone_repo(username, project)
+      github = `which github`
+      return false if github.empty?
+      command = "github clone #{username} #{project}"
+      system(command + " --ssh") || system(command)
+    end
+
+    # Fetch the git repo and run the setup block
+    # fetch_repo 'achiu', 'terminitor', :setup => true
+    def fetch_repo(username, project, options ={})
+      if clone_repo(username, project)
+        path = File.join(Dir.pwd, project)
+        FileUtils.cd(path)
+        invoke(:setup, []) if options[:setup]
+      else
+        say("could not fetch repo!")
+      end
+    end
+
   end
 end

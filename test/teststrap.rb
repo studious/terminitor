@@ -11,6 +11,11 @@ end
 class Riot::Context
 end
 
+# Checks to see if Ruby Platform matches designated platform
+def platform?(platform)
+  RUBY_PLATFORM.downcase.include?(platform)
+end
+
 class Object
   def capture(stream)
     begin
@@ -23,40 +28,4 @@ class Object
     end
     result
   end
-end
-
-class TestRunner
-  include Terminitor::Runner
-  
-  def say(caption)
-    puts caption
-  end
-end
-
-
-class TestObject
-  attr_accessor :test_item
-  
-  def initialize(test_item)
-    @test_item = test_item
-  end
-  
-  def windows
-    [@test_item]
-  end
-end
-
-class TestItem
-  def do_script(prompt,hash)
-    true
-  end
-  
-  def get
-    true
-  end
-  
-  def keystroke(prompt,hash)
-    true
-  end
-  
 end
