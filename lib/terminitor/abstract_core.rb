@@ -6,11 +6,12 @@ module Terminitor
     # set the terminal object, windows, and load the Termfile.
     def initialize(path)
       @termfile = load_termfile(path)
+			@options = @termfile[:options]
+			@working_dir = @options[:working_dir] || Dir.pwd
     end
 
     # Run the setup block in Termfile
     def setup!
-      @working_dir = Dir.pwd
       commands = @termfile[:setup].insert(0, "cd #{working_dir}")
       commands.each { |cmd| execute_command(cmd, :in => active_window) }
     end
@@ -54,7 +55,6 @@ module Terminitor
 
     # Opens a new tab and returns itself.
     def open_tab
-      @working_dir = Dir.pwd # pass in current directory.
     end
 
     # Returns the current window
