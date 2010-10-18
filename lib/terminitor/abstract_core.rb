@@ -26,13 +26,14 @@ module Terminitor
     # this command will run commands in the designated window
     # run_in_window {:tab1 => ['ls','ok']}
     def run_in_window(tabs, options = {})
-      open_window unless options[:default]
+      first_tab = open_window unless options[:default]
       tabs.each_pair do |tab_name,commands|
-        tab = open_tab
+        tab = first_tab || open_tab
         commands.insert(0,  "cd \"#{@working_dir}\"") unless @working_dir.to_s.empty?
         commands.each do |cmd|
           execute_command(cmd, :in => tab)
         end
+				first_tab = nil
       end
     end
 
