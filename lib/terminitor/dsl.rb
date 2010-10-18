@@ -5,6 +5,7 @@ module Terminitor
     def initialize(path)
       file = File.read(path)
       @setup = []
+			@options = {}
       @windows = { 'default' => {}}
       @_context = @windows['default'] 
       instance_eval(file)
@@ -57,9 +58,13 @@ module Terminitor
 
     # Returns yaml file as Terminitor formmatted hash
     def to_hash
-      { :setup => @setup, :windows => @windows }
+      { :setup => @setup, :options => @options, :windows => @windows }
     end
 
+		# Sets up our own working dir
+		def options(commands)
+			@options.merge! commands
+		end
 
     private
 
